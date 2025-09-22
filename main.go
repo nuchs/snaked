@@ -2,98 +2,48 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"os"
-
-	"github.com/gdamore/tcell/v2"
 )
 
-var direction = "up"
-
 func main() {
-	// cfg, err := FromFlags()
-	// if err != nil {
-	// 	fmt.Fprintln(os.Stderr, "Invalid config:", err)
-	// 	os.Exit(2)
-	// }
-
-	screen := createScreen()
-	defer safeFini(screen)
-
-	base := tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorWhite)
-	screen.SetStyle(base)
-	screen.Clear()
-	screen.Show()
-
-loop:
-	for {
-		ev := screen.PollEvent()
-		switch e := ev.(type) {
-		case *tcell.EventKey:
-			if handlekey(e) {
-				break loop
-			}
-			redraw(screen, base)
-		case *tcell.EventResize:
-			redraw(screen, base)
-		case *tcell.EventInterrupt:
-			break loop
-		}
-	}
-}
-
-func createScreen() tcell.Screen {
-	screen, err := tcell.NewScreen()
+	cfg, err := FromFlags()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "creating screen: ", err)
-		os.Exit(1)
-	}
-	if err = screen.Init(); err != nil {
-		fmt.Fprintln(os.Stderr, "initialising screen: ", err)
+		fmt.Fprintln(os.Stderr, "Invalid config:", err)
 		os.Exit(1)
 	}
 
-	return screen
+	f, err := initLogging(cfg)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to set up logging")
+		os.Exit(2)
+	}
+	defer f.Close()
+
+	if err := Run(cfg); err != nil {
+		log.Fatalf("Pants: %s", err)
+	}
+
+	log.Println("Ok lady, I love you buhbye!")
 }
 
-func handlekey(key *tcell.EventKey) bool {
-	switch key.Key() {
-	case tcell.KeyEscape, tcell.KeyCtrlC:
-		return true
+func initLogging(cfg Config) (*os.File, error) {
+	if !cfg.Debug {
+		log.SetOutput((io.Discard))
+		return nil, nil
 	}
 
-	switch key.Rune() {
-	case 'a', 'A':
-		direction = "left"
-	case 'w', 'W':
-		direction = "up"
-	case 'd', 'D':
-		direction = "right"
-	case 's', 'S':
-		direction = "down"
+	f, err := os.OpenFile(cfg.LogFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return nil, err
 	}
 
-	return false
-}
+	log.SetOutput(f)
+	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
+	log.Printf("======================================\n")
+	log.Printf("Hello, it's a me, snaked\n")
+	log.Println(cfg.String())
 
-func redraw(s tcell.Screen, st tcell.Style) {
-	w, h := s.Size()
-	status := fmt.Sprintf("Direction: %s (Esc to quit)", direction)
-
-	for x := range w {
-		DrawRune(s, x, h-1, ' ', st)
-	}
-
-	DrawString(s, 0, h-1, status, st)
-	s.Show()
-}
-
-func safeFini(s tcell.Screen) {
-	if s == nil {
-		return
-	}
-
-	defer s.Fini()
-	if r := recover(); r != nil {
-		fmt.Fprintln(os.Stderr, "panic:", r)
-	}
+	return f, nil
 }

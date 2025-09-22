@@ -12,13 +12,15 @@ var (
 )
 
 type Config struct {
-	Width  int
-	Height int
-	Speed  int
+	Width   int
+	Height  int
+	Speed   int
+	Debug   bool
+	LogFile string
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("width=%d, height=%d, speed=%d", c.Width, c.Height, c.Speed)
+	return fmt.Sprintf("Config: width=%d, height=%d, speed=%d", c.Width, c.Height, c.Speed)
 }
 
 func (c Config) Validate() error {
@@ -37,6 +39,8 @@ func FromFlags() (Config, error) {
 	flag.IntVar(&cfg.Width, "width", 40, "Board width (>= 10)")
 	flag.IntVar(&cfg.Height, "height", 40, "Board height (>= 10)")
 	flag.IntVar(&cfg.Speed, "speed", 8, "Ticks per second (1..60)")
+	flag.BoolVar(&cfg.Debug, "debug", false, "Enable logging")
+	flag.StringVar(&cfg.LogFile, "log file", "snaked.log", "File to log to")
 	flag.Parse()
 
 	return cfg, cfg.Validate()
