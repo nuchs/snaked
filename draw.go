@@ -35,37 +35,35 @@ func DrawBox(s tcell.Screen, x1, y1, x2, y2 int, st tcell.Style) {
 	DrawRune(s, x2, y2, '┘', st)
 }
 
-func DrawPlayfield(s tcell.Screen, W, H int, st tcell.Style) (ox, oy int) {
-	ox, oy = GridOrigin(s, W, H)
-	// Border coordinates surround the grid by 1 cell.
-	x1, y1 := ox-1, oy-1
-	x2, y2 := ox+W, oy+H
-	DrawBox(s, x1, y1, x2, y2, st)
-	return ox, oy
-}
-
-func render(s tcell.Screen, cfg Config, direction string) {
+func render(s tcell.Screen, cfg Config, snake *Snake) {
 	s.Clear()
 
-	playfieldStyle := tcell.StyleDefault.Foreground(tcell.ColorGreen)
-	textStyle := tcell.StyleDefault
+	// Border if present
+	borderStyle := tcell.StyleDefault.Foreground(tcell.ColorGreen)
+	ox, oy, W, H, _ := gridLayout(s, cfg.Width, cfg.Height)
+	DrawBox(s, ox-1, oy-1, ox+W, oy+H, borderStyle)
 
-	ox, oy := DrawPlayfield(s, cfg.Width, cfg.Height, playfieldStyle)
+	// Draw snake: head bright, body dimmer
+	headStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow)
+	bodyStyle := tcell.StyleDefault.Foreground(tcell.ColorLightYellow).Dim(true)
 
-	// Example: draw a test “head” at the center of the grid.
-	hx, hy := cfg.Width/2, cfg.Height/2
-	if InBounds(cfg.Width, cfg.Height, hx, hy) {
-		sx, sy := ToScreenCoords(ox, oy, hx, hy)
-		DrawRune(s, sx, sy, '●', tcell.StyleDefault.Foreground(tcell.ColorYellow))
+	for i, p := range snake.body {
+		sx, sy := ToScreenCoords(ox, oy, p.x, p.y)
+		ch := '●'
+		if i == 0 {
+			s.SetContent(sx, sy, ch, nil, headStyle)
+		} else {
+			s.SetContent(sx, sy, ch, nil, bodyStyle)
+		}
 	}
 
-	// Status line (outside border if space allows)
+	// Status line
 	tw, th := s.Size()
-	status := fmt.Sprintf("W=%d H=%d Dir=%s  (ESC to quit, WASD to change)", cfg.Width, cfg.Height, direction)
-	for x := range tw {
-		s.SetContent(x, th-1, ' ', nil, textStyle)
+	status := fmt.Sprintf("Len=%d Dir=%v  (WASD/Arrows, ESC to quit)", len(snake.body), snake.direction)
+	for x := 0; x < tw; x++ {
+		s.SetContent(x, th-1, ' ', nil, tcell.StyleDefault)
 	}
-	DrawString(s, 0, th-1, status, textStyle.Dim(true))
+	DrawString(s, 0, th-1, status, tcell.StyleDefault.Dim(true))
 
 	s.Show()
 }

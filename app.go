@@ -8,8 +8,6 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-var direction = "up"
-
 func Run(cfg Config) error {
 	screen, err := createScreen()
 	if err != nil {
@@ -21,17 +19,17 @@ func Run(cfg Config) error {
 
 	ch := startEventHandler(screen)
 	ticker := startTicker(cfg)
+	snake := NewSnake(Point{cfg.Width / 2, cfg.Height / 2}, 3, Right)
 
 loop:
 	for {
 		select {
 		case ev := <-ch:
-			if handleEvent(screen, cfg, ev) {
+			if handleEvent(screen, cfg, ev, snake) {
 				break loop
 			}
 		case <-ticker.C:
-			update()
-			render(screen, cfg, direction)
+			update(screen, cfg, snake)
 		}
 	}
 
@@ -79,18 +77,28 @@ func startTicker(cfg Config) *time.Ticker {
 	return ticker
 }
 
-func handleEvent(s tcell.Screen, cfg Config, ev tcell.Event) bool {
+func key2Dir(e *tcell.EventKey) (Direction, bool) {
+	switch e.Rune() {
+	case 'w', 'W':
+		return Up, true
+	case 's', 'S':
+		return Down, true
+	case 'a', 'A':
+		return Left, true
+	case 'd', 'D':
+		return Right, true
+	}
+	return None, false
+}
+
+func handleEvent(s tcell.Screen, cfg Config, ev tcell.Event, snake *Snake) bool {
 	switch e := ev.(type) {
 	case *tcell.EventKey:
-		switch e.Rune() {
-		case 'w', 'W':
-			direction = "up"
-		case 's', 'S':
-			direction = "down"
-		case 'a', 'A':
-			direction = "left"
-		case 'd', 'D':
-			direction = "right"
+		if dir, ok := key2Dir(e); ok {
+			snake.SetDirection(dir)
+		}
+		if e.Rune() == 'g' || e.Rune() == 'G' {
+			snake.PendingGrowth += 3
 		}
 		if e.Key() == tcell.KeyEscape || e.Key() == tcell.KeyCtrlC {
 			return true
@@ -98,7 +106,7 @@ func handleEvent(s tcell.Screen, cfg Config, ev tcell.Event) bool {
 
 	case *tcell.EventResize:
 		s.Sync()
-		render(s, cfg, direction)
+		render(s, cfg, snake)
 	}
 
 	return false
